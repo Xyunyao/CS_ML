@@ -64,7 +64,7 @@ class cs_dataset:
         pivot_df = df.pivot(index=['RES', 'NUM'], columns='ATOMNAME').reset_index()
         
         # Randomize the sequence of residues
-        pivot_df = pivot_df.sample(frac=1).reset_index(drop=True).fillna(0)
+        pivot_df = pivot_df.sample(frac=1, random_state=42).reset_index(drop=True).fillna(0)
 
         num_residues = pivot_df.shape[0]
         result_array = np.zeros((num_residues, 8))
@@ -265,23 +265,49 @@ class TreeVisualizer:
     def __init__(self, head_nodes):
         self.head_nodes = head_nodes  # The list of head nodes (NCACO array)
 
-    def _hierarchy_pos(self, G, root, width=1., vert_gap=0.2, vert_loc=0, xcenter=0.5, pos=None, parent=None):
+    def _hierarchy_pos(self, G, root, width=1., vert_gap=0.2, vert_loc=0, xcenter=0.5, pos=None, parent=None, visited=None):
         if pos is None:
             pos = {root: (xcenter, vert_loc)}
         else:
             pos[root] = (xcenter, vert_loc)
+            
+        # Initialize visited set if not already passed in
+        if visited is None:
+            visited = set()
+        visited.add(root)  # Mark this node as visited
 
-        children = list(G.neighbors(root))
-        if not isinstance(G, nx.DiGraph) and parent is not None:
-            children.remove(parent)
+        # Get children and filter out the parent if graph is undirected
+        children = [n for n in G.neighbors(root) if n != parent and n not in visited]
+        
+        # Continue only if there are children to place
         if len(children) != 0:
             dx = width / len(children)
             nextx = xcenter - width / 2 - dx / 2
             for child in children:
                 nextx += dx
                 pos = self._hierarchy_pos(G, child, width=dx, vert_gap=vert_gap, vert_loc=vert_loc - vert_gap,
-                                          xcenter=nextx, pos=pos, parent=root)
+                                        xcenter=nextx, pos=pos, parent=root, visited=visited)
         return pos
+
+
+
+    # def _hierarchy_pos(self, G, root, width=1., vert_gap=0.2, vert_loc=0, xcenter=0.5, pos=None, parent=None):
+    #     if pos is None:
+    #         pos = {root: (xcenter, vert_loc)}
+    #     else:
+    #         pos[root] = (xcenter, vert_loc)
+
+    #     children = list(G.neighbors(root))
+    #     if not isinstance(G, nx.DiGraph) and parent is not None:
+    #         children.remove(parent)
+    #     if len(children) != 0:
+    #         dx = width / len(children)
+    #         nextx = xcenter - width / 2 - dx / 2
+    #         for child in children:
+    #             nextx += dx
+    #             pos = self._hierarchy_pos(G, child, width=dx, vert_gap=vert_gap, vert_loc=vert_loc - vert_gap,
+    #                                       xcenter=nextx, pos=pos, parent=root)
+    #     return pos
 
     def hierarchy_pos(self, G, root=None, width=1., vert_gap=0.2, vert_loc=0, xcenter=0.5):
         return self._hierarchy_pos(G, root, width, vert_gap, vert_loc, xcenter)
@@ -294,7 +320,7 @@ class TreeVisualizer:
         pos = self.hierarchy_pos(G, root=head_node)
 
         # Define labels for nodes
-        labels = {node: f"{data['label']} {data['embedding'][[0,2,4,6]]}" for node, data in G.nodes(data=True)}
+        labels = {node: f"{data['label']} {data['embedding'][[0,2,4,7]]}" for node, data in G.nodes(data=True)}
 
         # Assign colors based on the node type
         colors = []
